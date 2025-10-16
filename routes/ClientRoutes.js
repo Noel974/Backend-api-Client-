@@ -1,16 +1,14 @@
 const express = require('express');
 const router = express.Router();
-const clientController = require('../controllers/ClientController');
+const clientController = require('../controllers/ClientControllers');
 const { verifyToken } = require('../middleware/AuthClient');
 
+router.post('/register', clientController.register);
+router.post('/login', clientController.login);
 
-router.get('/client/profile', verifyToken, clientController.getClientProfile);
-
-
-router.post('/client/register', clientController.registerClient);
-router.post('/client/login', clientController.loginClient);
-
-router.put('/client/update', verifyToken, clientController.updateClientProfile);
-router.delete('/client/delete', verifyToken, clientController.deleteClientAccount);
+// Routes protégées
+router.get('/:uuid', verifyToken, clientController.getClient);
+router.put('/:uuid', verifyToken, clientController.updateClient);
+router.delete('/:uuid', verifyToken, clientController.deleteClient);
 
 module.exports = router;
