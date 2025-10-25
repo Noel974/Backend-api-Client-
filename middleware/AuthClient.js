@@ -13,7 +13,7 @@ exports.verifyToken = (req, res, next) => {
   try {
     // Vérifie et décode le token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded; // Injecte les infos du token dans la requête
+    req.client = decoded; // Injecte les infos du token dans la requête
     next();
   } catch (err) {
     if (err.name === 'TokenExpiredError') {
