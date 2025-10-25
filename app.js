@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config(); // Chargement des variables d'environnement
 
 const express = require('express');
 const mongoose = require('mongoose');
@@ -6,42 +6,44 @@ const helmet = require('helmet');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 
-const clientRoutes = require('./routes/ClientRoutes');
-
 const app = express();
 
 // Sécurité HTTP
-app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" },
-  contentSecurityPolicy: false
-}));
-
-// Parsing des requêtes
+app.use(helmet());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// CORS
-const allowedOrigins = ["http://127.0.0.1:8080"];
+// 🔐 Configuration CORS
+const allowedOrigins = [
+  "http://127.0.0.1:8080", // dev
+];
+
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true
+}));
+
 app.use(cors({
   origin: allowedOrigins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
+ 
+// 📦 Importation des routes
 
-// Routes
+const clientRoutes = require('./routes/ClientRoutes');
+
+
+// 🛣️ Montage des routes
 app.get("/", (req, res) => {
   res.send("✅ API Location fonctionne !");
 });
+
 app.use('/api/clients', clientRoutes);
 
-// Gestion des erreurs globales
-app.use((err, req, res, next) => {
-  console.error("❌ Erreur non gérée :", err.stack);
-  res.status(500).json({ message: "Erreur serveur interne." });
-});
 
-// Connexion MongoDB
+// 🧠 Connexion à MongoDB
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true
