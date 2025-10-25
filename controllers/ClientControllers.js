@@ -8,16 +8,13 @@ exports.register = async (req, res) => {
   try {
     const { nom, prenom, email, motDePasse } = req.body;
 
-    // Vérifier si email déjà existant
     const existingClient = await Client.findOne({ email });
     if (existingClient) {
       return res.status(400).json({ message: 'Email déjà utilisé.' });
     }
 
-    // Hash mot de passe
     const hashedPassword = await bcrypt.hash(motDePasse, 10);
 
-    // Nouveau client
     const newClient = new Client({
       uuid: uuidv4(),
       nom,
@@ -28,18 +25,11 @@ exports.register = async (req, res) => {
 
     await newClient.save();
 
-    // Supprimer motDePasse avant d’envoyer la réponse
     const { motDePasse: _, ...clientSansMdp } = newClient.toObject();
-
-    console.log("🧪 Nouveau client enregistré :", clientSansMdp);
-
     res.status(201).json({ message: 'Client enregistré avec succès.', client: clientSansMdp });
   } catch (error) {
     console.error("❌ Erreur dans register :", error.message);
-    res.status(500).json({
-      message: "Erreur serveur.",
-      error: error.message || "Erreur inconnue"
-    });
+    res.status(500).json({ message: "Erreur serveur.", error: error.message });
   }
 };
 
@@ -54,16 +44,13 @@ exports.login = async (req, res) => {
     const isValid = await bcrypt.compare(motDePasse, client.motDePasse);
     if (!isValid) return res.status(401).json({ message: 'Mot de passe incorrect.' });
 
-    // Générer le token
     const token = jwt.sign(
       { uuid: client.uuid, email: client.email },
       process.env.JWT_SECRET,
       { expiresIn: '2h' }
     );
 
-    // Supprimer motDePasse avant envoi
     const { motDePasse: _, ...clientSansMdp } = client.toObject();
-
     res.status(200).json({ message: 'Connexion réussie.', token, client: clientSansMdp });
   } catch (error) {
     console.error("❌ Erreur dans login :", error.message);
@@ -71,16 +58,15 @@ exports.login = async (req, res) => {
   }
 };
 
-// 📥 Get client by UUID
+// 📥 Get client (via token)
 exports.getClient = async (req, res) => {
   try {
-    const { uuid } = req.params;
+    const { uuid } = req.client;
     const client = await Client.findOne({ uuid });
 
     if (!client) return res.status(404).json({ message: 'Client non trouvé.' });
 
     const { motDePasse: _, ...clientSansMdp } = client.toObject();
-
     res.status(200).json(clientSansMdp);
   } catch (error) {
     console.error("❌ Erreur dans getClient :", error.message);
@@ -88,10 +74,10 @@ exports.getClient = async (req, res) => {
   }
 };
 
-// ✏️ Update client
+// ✏️ Update client (via token)
 exports.updateClient = async (req, res) => {
   try {
-    const { uuid } = req.params;
+    const uuid = req.client.uuid;
     const updates = { ...req.body };
 
     if (updates.motDePasse) {
@@ -99,11 +85,9 @@ exports.updateClient = async (req, res) => {
     }
 
     const updatedClient = await Client.findOneAndUpdate({ uuid }, updates, { new: true });
-
     if (!updatedClient) return res.status(404).json({ message: 'Client non trouvé.' });
 
     const { motDePasse: _, ...clientSansMdp } = updatedClient.toObject();
-
     res.status(200).json({ message: 'Client mis à jour.', client: clientSansMdp });
   } catch (error) {
     console.error("❌ Erreur dans updateClient :", error.message);
@@ -111,10 +95,10 @@ exports.updateClient = async (req, res) => {
   }
 };
 
-// ❌ Delete client
+// ❌ Delete client (via token)
 exports.deleteClient = async (req, res) => {
   try {
-    const { uuid } = req.params;
+    const uuid = req.client.uuid;
     const deleted = await Client.findOneAndDelete({ uuid });
 
     if (!deleted) return res.status(404).json({ message: 'Client non trouvé.' });

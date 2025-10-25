@@ -3,12 +3,13 @@ const router = express.Router();
 const clientController = require('../controllers/ClientControllers');
 const { verifyToken } = require('../middleware/AuthClient');
 
+// 🔐 Authentification
 router.post('/register', clientController.register);
 router.post('/login', clientController.login);
 
-// Routes protégées
-router.get('/:uuid', verifyToken, clientController.getClient);
-router.put('/:uuid', verifyToken, clientController.updateClient);
-router.delete('/:uuid', verifyToken, clientController.deleteClient);
+// ✅ Routes protégées via token
+router.get('/', verifyToken, clientController.getClient);           // Récupère le client connecté
+router.put('/', verifyToken, clientController.updateClient);        // Met à jour le client connecté
+router.delete('/', verifyToken, clientController.deleteClient);     // Supprime le client connecté
 
 module.exports = router;
