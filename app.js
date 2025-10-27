@@ -16,6 +16,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 // 🔐 Configuration CORS
 const allowedOrigins = [
   "http://127.0.0.1:8080", // dev
+  "https://formation-box.online",
 ];
 
 app.use(cors({
