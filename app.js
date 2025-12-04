@@ -32,17 +32,24 @@ app.use(cors({
 }));
  
 // 📦 Importation des routes
-
+const authRoutes = require('./routes/AuthRoutes');
+const registerRoutes = require('./routes/RegisterRoutes');
+const dashboardAdminRoutes =require('./routes/AdminRoutes');
+const dashboardFormateurRoutes = require('./routes/FormateurRoutes');
+const initiationRoutes = require('./routes/InitiationRoutes');
 const clientRoutes = require('./routes/ClientRoutes');
-
 
 // 🛣️ Montage des routes
 app.get("/", (req, res) => {
   res.send("✅ API Location fonctionne !");
 });
 
-app.use('/api/clients', clientRoutes);
-
+app.use('/api/auth', authRoutes);
+app.use('/api/regist', registerRoutes);
+app.use('/api/dashboardadmin',dashboardAdminRoutes);
+app.use('/api/dashboardformateur',dashboardFormateurRoutes);
+app.use('/api/initiation',initiationRoutes);
+app.use('/api/client',clientRoutes);
 
 // 🧠 Connexion à MongoDB
 mongoose.connect(process.env.MONGO_URI, {

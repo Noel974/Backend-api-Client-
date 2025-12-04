@@ -1,15 +1,15 @@
 const express = require('express');
 const router = express.Router();
-const clientController = require('../controllers/ClientControllers');
-const { verifyToken } = require('../middleware/AuthClient');
+const clientController = require('../controllers/DasbordClientControllers');
+const verifyToken = require('../middleware/Token');
+const verifyRole = require('../middleware/Role');
 
-// 🔐 Authentification
-router.post('/register', clientController.register);
-router.post('/login', clientController.login);
+// Middleware combiné
+const protect = (role) => [verifyToken, verifyRole(role)];
 
 // ✅ Routes protégées via token
-router.get('/getclient', verifyToken, clientController.getClient);           // Récupère le client connecté
-router.put('/updateclient', verifyToken, clientController.updateClient);        // Met à jour le client connecté
-router.delete('/deleteclient', verifyToken, clientController.deleteClient);     // Supprime le client connecté
+router.get('/getclient', protect("client"), clientController.getClient);           // Récupère le client connecté
+router.put('/updateclient', protect("client"), clientController.updateClient);        // Met à jour le client connecté
+router.delete('/deleteclient', protect("client"), clientController.deleteClient);     // Supprime le client connecté
 
 module.exports = router;
