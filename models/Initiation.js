@@ -1,5 +1,3 @@
-const mongoose = require("mongoose");
-
 const coursSchema = new mongoose.Schema({
   uuid: { type: String, required: true, unique: true },
 
@@ -13,37 +11,19 @@ const coursSchema = new mongoose.Schema({
     type: String,
     trim: true,
     maxlength: 20,
-    enum: ["informatique", "langues", "developpement", "autre"], // 🔒 valeurs limitées
+    enum: ["informatique", "langues", "developpement", "autre"],
     required: true,
   },
 
-  titre: { type: String, trim: true, maxlength: 50, required: true },
-  introduction: { type: String, trim: true, maxlength: 2500 },
-  objectif: { type: String, trim: true, maxlength: 2500 },
-
-  pedagogique: { type: String, trim: true, maxlength: 2500 },
-  methode: { type: String, trim: true, maxlength: 2500 },
-  avantage: { type: String, trim: true, maxlength: 2500 },
-  conclusion: { type: String, trim: true, maxlength: 2500 },
+  titre: { type: String, trim: true, maxlength: 500, required: true },
+  introduction: { type: String, trim: true, maxlength: 2500, default: "" },
+  objectif: { type: String, trim: true, maxlength: 2500, default: "" },
+  outils: { type: String, trim: true, maxlength: 2500, default: "" },
+  pedagogique: { type: String, trim: true, maxlength: 2500, default: "" },
+  methode: { type: String, trim: true, maxlength: 2500, default: "" },
+  avantage: { type: String, trim: true, maxlength: 2500, default: "" },
+  conclusion: { type: String, trim: true, maxlength: 2500, default: "" },
 
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
 });
-
-// 🕒 Mise à jour auto de la date sur save
-coursSchema.pre("save", function (next) {
-  this.updatedAt = Date.now();
-  next();
-});
-
-// 🕒 Mise à jour auto de la date sur update
-coursSchema.pre("findOneAndUpdate", function (next) {
-  this.set({ updatedAt: Date.now() });
-  next();
-});
-
-// ⚡ Index pour optimiser les recherches par type
-coursSchema.index({ type: 1 });
-
-const Cours = mongoose.model("Cours", coursSchema);
-module.exports = Cours;
