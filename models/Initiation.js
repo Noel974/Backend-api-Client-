@@ -1,3 +1,5 @@
+const mongoose = require('mongoose');
+
 const coursSchema = new mongoose.Schema({
   uuid: { type: String, required: true, unique: true },
 
@@ -27,3 +29,5 @@ const coursSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
 });
+
+module.exports = mongoose.model("Initiation", coursSchema);
