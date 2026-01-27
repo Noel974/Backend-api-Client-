@@ -86,7 +86,7 @@ exports.getAllCours = async (req, res) => {
     }
 
     const cours = await Cours.find(filter)
-      .populate("formateur", "nom prenom email paypalLink status")
+      .populate("formateur", "nom prenom email paypalLink")
       .sort({ createdAt: -1 });
 
     res.json(cours);
@@ -102,7 +102,7 @@ exports.getCoursById = async (req, res) => {
 
   try {
     const cours = await Cours.findById(req.params.id)
-      .populate("formateur", "nom prenom email paypalLink status");
+      .populate("formateur", "nom prenom email paypalLink");
 
     if (!cours) {
       return res.status(404).json({ success: false, message: "Cours non trouvé" });
