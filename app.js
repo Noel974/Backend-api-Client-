@@ -15,8 +15,10 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 // 🔐 Configuration CORS
 const allowedOrigins = [
-  "http://127.0.0.1:8080", // dev
+  "http://127.0.0.1:8080",
+  "http://localhost:5173", // dev
   "https://formation-box.online",
+  "https://intercom-formateur.fun",
 ];
 
 app.use(cors({
