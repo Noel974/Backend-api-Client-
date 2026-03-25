@@ -1,15 +1,16 @@
 const express = require("express");
 const router = express.Router();
 const initiationController = require("../controllers/InitiationControllers");
-const verifyToken = require("../middleware/Token");
+const optionalToken = require("../middleware/Token");
+const verifyToken = require("../middleware/Optimal");
 const verifyRole = require("../middleware/Role");
 
 // Middleware combiné pour protéger les routes selon le rôle
 const protect = (role) => [verifyToken, verifyRole(role)];
 
 // ✅ Routes publiques
-router.get("/cours",verifyToken, initiationController.getAllCours);
-router.get("/cours/:id", verifyToken, initiationController.getCoursById);
+router.get("/cours",optionalToken, initiationController.getAllCours);
+router.get("/cours/:id", optionalToken, initiationController.getCoursById);
 
 // ✅ Routes protégées (formateur uniquement)
 router.post("/cours", protect("formateur"), initiationController.createCours);
