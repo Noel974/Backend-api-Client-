@@ -1,8 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const initiationController = require("../controllers/InitiationControllers");
-const optionalToken = require("../middleware/Token");
-const verifyToken = require("../middleware/Optimal");
+const optionalToken = require("../middleware/Optimal");
+const verifyToken = require("../middleware/Token");
 const verifyRole = require("../middleware/Role");
 
 // Middleware combiné pour protéger les routes selon le rôle
