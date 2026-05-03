@@ -1,28 +1,115 @@
-const Cours = require("../models/Initiation");
-const User = require("../models/Users");
-const { v4: uuidv4 } = require("uuid");
+import Cours from "../models/Initiation.js";
+import { v4 as uuidv4 } from "uuid";
+import cloudinary from "../utils/config_multer.js";
 
-// 🟢 Créer un cours (formateur uniquement)
-exports.createCours = async (req, res) => {
+// Champs autorisés en update (utile plus tard)
+const allowedFields = [
+  "type",
+  "titre",
+  "introduction",
+  "objectif",
+  "outils",
+  "pedagogique",
+  "methode",
+  "avantage",
+  "conclusion",
+];
+
+// 🟢 CREATE COURS
+export const createCours = async (req, res) => {
   try {
+    const body = req.body;
+
+    // 🔹 VIDEO YOUTUBE SAFE PARSE
+    let videoYoutube = {};
+    if (body.videoYoutube) {
+      try {
+        videoYoutube =
+          typeof body.videoYoutube === "string"
+            ? JSON.parse(body.videoYoutube)
+            : body.videoYoutube;
+      } catch {
+        return res.status(400).json({
+          success: false,
+          message: "Format videoYoutube invalide",
+        });
+      }
+    }
+
+    // 🔹 PDF FILES
+    const pdfFiles = req.files?.pdfs || [];
+    const uploadedPdfs = [];
+
+    for (const file of pdfFiles) {
+
+      const result = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            resource_type: "raw",
+            folder: "pdfs",
+          },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        );
+
+        stream.end(file.buffer);
+      });
+
+      uploadedPdfs.push({
+        url: result.secure_url,
+        public_id: result.public_id,
+
+        // 🔥 IMPORTANT FIX
+        name: file.originalname || "document.pdf"
+      });
+    }
+
+    // 🔹 VALIDATION MINIMALE (IMPORTANT)
+    if (!body.titre || !body.introduction) {
+      return res.status(400).json({
+        success: false,
+        message: "Champs obligatoires manquants"
+      });
+    }
+
+    // 🔹 CREATE COURS PROPRE
     const cours = await Cours.create({
       uuid: uuidv4(),
-      ...req.body,
+
+      titre: body.titre,
+      type: body.type,
+      introduction: body.introduction,
+      objectif: body.objectif,
+      outils: body.outils,
+      pedagogique: body.pedagogique,
+      methode: body.methode,
+      avantage: body.avantage,
+      conclusion: body.conclusion,
+
       formateur: req.user.id,
+      pdfs: uploadedPdfs,
+      videoYoutube,
     });
 
     res.status(201).json({
+      success: true,
       message: "Cours créé avec succès",
-      cours,
+      data: cours,
     });
+
   } catch (err) {
-    console.error("Erreur createCours :", err);
-    res.status(500).json({ message: "Erreur lors de la création du cours", error: err.message });
+    console.error("🔥 CREATE COURS ERROR:", err);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la création du cours",
+      error: err.message,
+    });
   }
 };
-
-// 🟠 Mettre à jour un cours (formateur propriétaire uniquement)
-exports.updateCours = async (req, res) => {
+// 🟠 UPDATE COURS
+export const updateCours = async (req, res) => {
   try {
     const cours = await Cours.findOne({
       _id: req.params.id,
@@ -30,58 +117,192 @@ exports.updateCours = async (req, res) => {
     });
 
     if (!cours) {
-      return res.status(404).json({ message: "Cours introuvable ou non autorisé" });
+      return res.status(404).json({
+        success: false,
+        message: "Cours introuvable ou non autorisé",
+      });
     }
 
-    Object.assign(cours, req.body);
+    const body = req.body;
+
+    // =========================
+    // 1. UPDATE CHAMPS TEXTE
+    // =========================
+    allowedFields.forEach((field) => {
+      if (body[field] !== undefined) {
+        cours[field] = body[field];
+      }
+    });
+
+    // =========================
+    // 2. VIDEO YOUTUBE SAFE
+    // =========================
+    if (body.videoYoutube) {
+      try {
+        cours.videoYoutube =
+          typeof body.videoYoutube === "string"
+            ? JSON.parse(body.videoYoutube)
+            : body.videoYoutube;
+      } catch {
+        return res.status(400).json({
+          success: false,
+          message: "Format videoYoutube invalide",
+        });
+      }
+    }
+
+    // =========================
+    // 3. PDF UPDATE (Cloudinary)
+    // =========================
+    const pdfFiles = req.files?.pdfs || [];
+
+    if (pdfFiles.length > 0) {
+      const uploadedPdfs = [];
+
+      // 🔥 UPLOAD NOUVEAUX PDF
+      for (const file of pdfFiles) {
+        const result = await new Promise((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            {
+              resource_type: "raw",
+              folder: "pdfs",
+            },
+            (error, result) => {
+              if (error) reject(error);
+              else resolve(result);
+            }
+          );
+
+          stream.end(file.buffer);
+        });
+
+        uploadedPdfs.push({
+          url: result.secure_url,
+          public_id: result.public_id,
+          name: file.originalname || "document.pdf",
+        });
+      }
+
+      // =========================
+      // 4. SUPPRESSION ANCIENS PDF
+      // =========================
+      if (cours.pdfs && cours.pdfs.length > 0) {
+        await Promise.all(
+          cours.pdfs.map(async (pdf) => {
+            if (pdf.public_id) {
+              try {
+                await cloudinary.uploader.destroy(pdf.public_id, {
+                  resource_type: "raw",
+                });
+              } catch (err) {
+                console.warn("Erreur suppression PDF:", err.message);
+              }
+            }
+          })
+        );
+      }
+
+      // =========================
+      // 5. REMPLACEMENT PDF
+      // =========================
+      cours.pdfs = uploadedPdfs;
+    }
+
+    // =========================
+    // 6. SAVE MONGODB
+    // =========================
     await cours.save();
 
-    res.json({ message: "Cours mis à jour avec succès", cours });
+    res.json({
+      success: true,
+      message: "Cours mis à jour avec succès",
+      data: cours,
+    });
+
   } catch (err) {
     console.error("Erreur updateCours :", err);
-    res.status(500).json({ message: "Erreur lors de la mise à jour", error: err.message });
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la mise à jour",
+      error: err.message,
+    });
   }
 };
 
-// 🔴 Supprimer un cours (formateur propriétaire uniquement)
-exports.deleteCours = async (req, res) => {
+// 🔴 DELETE COURS
+export const deleteCours = async (req, res) => {
   try {
-    const cours = await Cours.findOneAndDelete({
+    const cours = await Cours.findOne({
       _id: req.params.id,
       formateur: req.user.id,
     });
 
     if (!cours) {
-      return res.status(404).json({ message: "Cours introuvable ou non autorisé" });
+      return res.status(404).json({
+        success: false,
+        message: "Cours introuvable ou non autorisé",
+      });
     }
 
-    res.json({ message: "Cours supprimé avec succès" });
+    // 🔥 1. Supprimer les PDF sur Cloudinary
+    if (cours.pdfs && cours.pdfs.length > 0) {
+      await Promise.all(
+        cours.pdfs.map(async (pdf) => {
+          if (pdf.public_id) {
+            try {
+              await cloudinary.uploader.destroy(pdf.public_id, {
+                resource_type: "raw",
+              });
+            } catch (err) {
+              console.warn("Erreur suppression PDF Cloudinary:", err.message);
+            }
+          }
+        })
+      );
+    }
+
+    // 🔥 2. Supprimer le cours en base MongoDB
+    await Cours.deleteOne({ _id: cours._id });
+
+    res.json({
+      success: true,
+      message: "Cours et fichiers supprimés avec succès",
+    });
+
   } catch (err) {
     console.error("Erreur deleteCours :", err);
-    res.status(500).json({ message: "Erreur lors de la suppression", error: err.message });
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la suppression",
+      error: err.message,
+    });
   }
 };
 
-// 🟣 Voir les cours du formateur connecté
-exports.getMyCours = async (req, res) => {
+// 🟣 GET MY COURS
+export const getMyCours = async (req, res) => {
   try {
-    const cours = await Cours.find({ formateur: req.user.id })
-      .sort({ createdAt: -1 });
+    const cours = await Cours.find({
+      formateur: req.user.id,
+    }).sort({ createdAt: -1 });
 
-    res.json(cours);
+    res.json({ success: true, data: cours });
   } catch (err) {
-    console.error("Erreur getMyCours :", err);
-    res.status(500).json({ message: "Erreur lors de la récupération", error: err.message });
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération",
+      error: err.message,
+    });
   }
 };
 
-// 🔵 Voir les cours publics pour les clients (avec filtre par type)
-exports.getAllCours = async (req, res) => {
+// 🔵 GET ALL COURS
+export const getAllCours = async (req, res) => {
   try {
     const { type } = req.query;
     const filter = {};
 
-    if (type && typeof type === "string" && type.trim() !== "") {
+    if (type && type.trim() !== "") {
       filter.type = type.trim();
     }
 
@@ -89,28 +310,37 @@ exports.getAllCours = async (req, res) => {
       .populate("formateur", "nom prenom email paypalLink")
       .sort({ createdAt: -1 });
 
-    res.json(cours);
+    res.json({ success: true, data: cours });
   } catch (err) {
-    console.error("Erreur getAllCours :", err);
-    res.status(500).json({ message: "Erreur lors de la récupération", error: err.message });
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération",
+      error: err.message,
+    });
   }
 };
 
-// 🔍 Voir un cours par ID
-exports.getCoursById = async (req, res) => {
-  console.log("Requête reçue pour ID:", req.params.id);
-
+// 🔍 GET COURS BY ID
+export const getCoursById = async (req, res) => {
   try {
-    const cours = await Cours.findById(req.params.id)
-      .populate("formateur", "nom prenom email paypalLink");
+    const cours = await Cours.findById(req.params.id).populate(
+      "formateur",
+      "nom prenom email paypalLink"
+    );
 
     if (!cours) {
-      return res.status(404).json({ success: false, message: "Cours non trouvé" });
+      return res.status(404).json({
+        success: false,
+        message: "Cours non trouvé",
+      });
     }
 
-    res.json({ success: true, cours });
+    res.json({ success: true, data: cours });
   } catch (err) {
-    console.error("Erreur getCoursById :", err);
-    res.status(500).json({ success: false, message: "Erreur serveur", error: err.message });
+    res.status(500).json({
+      success: false,
+      message: "Erreur serveur",
+      error: err.message,
+    });
   }
 };
