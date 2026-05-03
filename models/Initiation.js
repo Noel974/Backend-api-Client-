@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 const coursSchema = new mongoose.Schema({
   uuid: { type: String, required: true, unique: true },
@@ -26,19 +26,17 @@ const coursSchema = new mongoose.Schema({
   avantage: { type: String, trim: true, maxlength: 2500, default: "" },
   conclusion: { type: String, trim: true, maxlength: 2500, default: "" },
 
-  // 🔹 PDF (1 à 3 max)
+  // 🔹 PDF
   pdfs: {
     type: [
       {
         url: { type: String, required: true },
         public_id: { type: String, required: true },
-        originalName: { type: String, default: "" }
+        name: { type: String, default: "" } // 🔥 renommé propre
       }
     ],
     validate: {
-      validator: function (val) {
-        return val.length <= 3;
-      },
+      validator: (val) => val.length <= 3,
       message: "Maximum 3 PDF autorisés"
     },
     default: []
@@ -46,11 +44,7 @@ const coursSchema = new mongoose.Schema({
 
   // 🔹 Vidéo YouTube
   videoYoutube: {
-    url: {
-      type: String,
-      default: "",
-      match: /^(https?\:\/\/)?(www\.youtube\.com|youtu\.be)\/.+$/
-    },
+    url: { type: String, default: "" },
     videoId: { type: String, default: "" }
   },
 
@@ -58,27 +52,33 @@ const coursSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now },
 });
 
-// 🔄 Mise à jour automatique
+
+// =========================
+// 🔥 PRE SAVE FIX
+// =========================
 coursSchema.pre("save", function (next) {
-  // mise à jour date
   this.updatedAt = Date.now();
 
-  if (this.videoYoutube && this.videoYoutube.url) {
+  if (this.videoYoutube?.url) {
     const url = this.videoYoutube.url.trim();
 
-    // Regex pour extraire le vrai ID YouTube (11 caractères)
-    const regex = /(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
-    const match = url.match(regex);
+    // 🔥 Extraction ID plus robuste
+    const match =
+      url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/) ||
+      url.match(/[?&]v=([a-zA-Z0-9_-]+)/) ||
+      url.match(/embed\/([a-zA-Z0-9_-]+)/);
 
     if (!match) {
       return next(new Error("URL YouTube invalide"));
     }
 
-    // 🔹 On extrait et stocke l'ID propre
-    this.videoYoutube.videoId = match[1];
+    const videoId = match[1];
 
-    // 🔹 Optionnel : normaliser l'URL (propre)
-    this.videoYoutube.url = `https://www.youtube.com/watch?v=${match[1]}`;
+    // 🔥 Stockage propre
+    this.videoYoutube.videoId = videoId;
+
+    // 🔥 Format parfait pour iframe
+    this.videoYoutube.url = `https://www.youtube.com/embed/${videoId}`;
   }
 
   next();
