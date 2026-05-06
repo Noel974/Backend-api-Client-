@@ -2,7 +2,7 @@ import Cours from "../models/Initiation.js";
 import { v4 as uuidv4 } from "uuid";
 import cloudinary from "../utils/config_multer.js";
 
-// Champs autorisés en update (utile plus tard)
+// Champs autorisés pour update
 const allowedFields = [
   "type",
   "titre",
@@ -15,12 +15,53 @@ const allowedFields = [
   "conclusion",
 ];
 
+// 🔧 Fonction utilitaire : upload PDF Cloudinary
+const uploadPdf = (file) => {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        resource_type: "raw",
+        folder: "pdfs",
+      },
+      (error, result) => {
+        if (error) reject(error);
+        else resolve({
+          url: result.secure_url,
+          public_id: result.public_id,
+          name: file.originalname || "document.pdf",
+        });
+      }
+    );
+
+    stream.end(file.buffer);
+  });
+};
+
+// 🔧 Fonction utilitaire : suppression PDF Cloudinary
+const deletePdf = async (public_id) => {
+  try {
+    await cloudinary.uploader.destroy(public_id, {
+      resource_type: "raw",
+    });
+  } catch (err) {
+    console.warn("Erreur suppression PDF Cloudinary:", err.message);
+  }
+};
+
 // 🟢 CREATE COURS
 export const createCours = async (req, res) => {
   try {
     const body = req.body;
 
-    // 🔹 VIDEO YOUTUBE SAFE PARSE
+    // Validation minimale
+    if (!body.titre || !body.introduction) {
+      return res.status(400).json({
+        success: false,
+        message: "Champs obligatoires manquants",
+      });
+    }
+
+    // Parse vidéo YouTube
     let videoYoutube = {};
     if (body.videoYoutube) {
       try {
@@ -36,48 +77,13 @@ export const createCours = async (req, res) => {
       }
     }
 
-    // 🔹 PDF FILES
+    // Upload PDF
     const pdfFiles = req.files?.pdfs || [];
-    const uploadedPdfs = [];
+    const uploadedPdfs = await Promise.all(pdfFiles.map(uploadPdf));
 
-    for (const file of pdfFiles) {
-
-      const result = await new Promise((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-          {
-            resource_type: "raw",
-            folder: "pdfs",
-          },
-          (error, result) => {
-            if (error) reject(error);
-            else resolve(result);
-          }
-        );
-
-        stream.end(file.buffer);
-      });
-
-      uploadedPdfs.push({
-        url: result.secure_url,
-        public_id: result.public_id,
-
-        // 🔥 IMPORTANT FIX
-        name: file.originalname || "document.pdf"
-      });
-    }
-
-    // 🔹 VALIDATION MINIMALE (IMPORTANT)
-    if (!body.titre || !body.introduction) {
-      return res.status(400).json({
-        success: false,
-        message: "Champs obligatoires manquants"
-      });
-    }
-
-    // 🔹 CREATE COURS PROPRE
+    // Création du cours
     const cours = await Cours.create({
       uuid: uuidv4(),
-
       titre: body.titre,
       type: body.type,
       introduction: body.introduction,
@@ -87,7 +93,6 @@ export const createCours = async (req, res) => {
       methode: body.methode,
       avantage: body.avantage,
       conclusion: body.conclusion,
-
       formateur: req.user.id,
       pdfs: uploadedPdfs,
       videoYoutube,
@@ -98,7 +103,6 @@ export const createCours = async (req, res) => {
       message: "Cours créé avec succès",
       data: cours,
     });
-
   } catch (err) {
     console.error("🔥 CREATE COURS ERROR:", err);
     res.status(500).json({
@@ -108,6 +112,7 @@ export const createCours = async (req, res) => {
     });
   }
 };
+
 // 🟠 UPDATE COURS
 export const updateCours = async (req, res) => {
   try {
@@ -125,18 +130,14 @@ export const updateCours = async (req, res) => {
 
     const body = req.body;
 
-    // =========================
-    // 1. UPDATE CHAMPS TEXTE
-    // =========================
+    // Update champs texte
     allowedFields.forEach((field) => {
       if (body[field] !== undefined) {
         cours[field] = body[field];
       }
     });
 
-    // =========================
-    // 2. VIDEO YOUTUBE SAFE
-    // =========================
+    // Update vidéo YouTube
     if (body.videoYoutube) {
       try {
         cours.videoYoutube =
@@ -151,66 +152,20 @@ export const updateCours = async (req, res) => {
       }
     }
 
-    // =========================
-    // 3. PDF UPDATE (Cloudinary)
-    // =========================
+    // Update PDF
     const pdfFiles = req.files?.pdfs || [];
-
     if (pdfFiles.length > 0) {
-      const uploadedPdfs = [];
-
-      // 🔥 UPLOAD NOUVEAUX PDF
-      for (const file of pdfFiles) {
-        const result = await new Promise((resolve, reject) => {
-          const stream = cloudinary.uploader.upload_stream(
-            {
-              resource_type: "raw",
-              folder: "pdfs",
-            },
-            (error, result) => {
-              if (error) reject(error);
-              else resolve(result);
-            }
-          );
-
-          stream.end(file.buffer);
-        });
-
-        uploadedPdfs.push({
-          url: result.secure_url,
-          public_id: result.public_id,
-          name: file.originalname || "document.pdf",
-        });
-      }
-
-      // =========================
-      // 4. SUPPRESSION ANCIENS PDF
-      // =========================
-      if (cours.pdfs && cours.pdfs.length > 0) {
+      // Supprimer anciens PDF
+      if (cours.pdfs?.length > 0) {
         await Promise.all(
-          cours.pdfs.map(async (pdf) => {
-            if (pdf.public_id) {
-              try {
-                await cloudinary.uploader.destroy(pdf.public_id, {
-                  resource_type: "raw",
-                });
-              } catch (err) {
-                console.warn("Erreur suppression PDF:", err.message);
-              }
-            }
-          })
+          cours.pdfs.map((pdf) => pdf.public_id && deletePdf(pdf.public_id))
         );
       }
 
-      // =========================
-      // 5. REMPLACEMENT PDF
-      // =========================
-      cours.pdfs = uploadedPdfs;
+      // Upload nouveaux PDF
+      cours.pdfs = await Promise.all(pdfFiles.map(uploadPdf));
     }
 
-    // =========================
-    // 6. SAVE MONGODB
-    // =========================
     await cours.save();
 
     res.json({
@@ -218,7 +173,6 @@ export const updateCours = async (req, res) => {
       message: "Cours mis à jour avec succès",
       data: cours,
     });
-
   } catch (err) {
     console.error("Erreur updateCours :", err);
     res.status(500).json({
@@ -244,31 +198,19 @@ export const deleteCours = async (req, res) => {
       });
     }
 
-    // 🔥 1. Supprimer les PDF sur Cloudinary
-    if (cours.pdfs && cours.pdfs.length > 0) {
+    // Supprimer PDF Cloudinary
+    if (cours.pdfs?.length > 0) {
       await Promise.all(
-        cours.pdfs.map(async (pdf) => {
-          if (pdf.public_id) {
-            try {
-              await cloudinary.uploader.destroy(pdf.public_id, {
-                resource_type: "raw",
-              });
-            } catch (err) {
-              console.warn("Erreur suppression PDF Cloudinary:", err.message);
-            }
-          }
-        })
+        cours.pdfs.map((pdf) => pdf.public_id && deletePdf(pdf.public_id))
       );
     }
 
-    // 🔥 2. Supprimer le cours en base MongoDB
     await Cours.deleteOne({ _id: cours._id });
 
     res.json({
       success: true,
       message: "Cours et fichiers supprimés avec succès",
     });
-
   } catch (err) {
     console.error("Erreur deleteCours :", err);
     res.status(500).json({
@@ -282,9 +224,9 @@ export const deleteCours = async (req, res) => {
 // 🟣 GET MY COURS
 export const getMyCours = async (req, res) => {
   try {
-    const cours = await Cours.find({
-      formateur: req.user.id,
-    }).sort({ createdAt: -1 });
+    const cours = await Cours.find({ formateur: req.user.id }).sort({
+      createdAt: -1,
+    });
 
     res.json({ success: true, data: cours });
   } catch (err) {
@@ -299,11 +241,9 @@ export const getMyCours = async (req, res) => {
 // 🔵 GET ALL COURS
 export const getAllCours = async (req, res) => {
   try {
-    const { type } = req.query;
     const filter = {};
-
-    if (type && type.trim() !== "") {
-      filter.type = type.trim();
+    if (req.query.type?.trim()) {
+      filter.type = req.query.type.trim();
     }
 
     const cours = await Cours.find(filter)
