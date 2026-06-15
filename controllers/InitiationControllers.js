@@ -1,5 +1,5 @@
 import Cours from "../models/Initiation.js";
-import User from "../models/User.js";
+import User from "../models/User.js"; // ⚠️ Ajuste le chemin si ton modèle User est ailleurs
 import { v4 as uuidv4 } from "uuid";
 import cloudinary from "../utils/config_multer.js";
 import { publierSurFacebook } from "../utils/facebook.js";
@@ -110,13 +110,15 @@ export const createCours = async (req, res) => {
       // 🔵 Construire URL du cours (sans espace à la fin)
       const urlCours = `https://formation-box.online/initia.html?id=${cours._id}`;
 
-      // 🔵 Publier sur Facebook (sans bloquer la réponse)
+      // 🔵 Publier sur Facebook (sans bloquer la réponse, erreurs interceptées)
       publierSurFacebook({
         nom: formateur.nom,
         prenom: formateur.prenom,
         titre: cours.titre,
         introduction: cours.introduction,
         url: urlCours,
+      }).catch((err) => {
+        console.error("Erreur publication Facebook:", err.message);
       });
     }
 
