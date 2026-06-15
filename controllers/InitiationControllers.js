@@ -1,5 +1,5 @@
 import Cours from "../models/Initiation.js";
-import User from "../models/User.js"; // ⚠️ Ajuste le chemin si ton modèle User est ailleurs
+import User from "../models/Users.js"; 
 import { v4 as uuidv4 } from "uuid";
 import cloudinary from "../utils/config_multer.js";
 import { publierSurFacebook } from "../utils/facebook.js";
