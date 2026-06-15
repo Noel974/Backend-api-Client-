@@ -1,4 +1,5 @@
 import Cours from "../models/Initiation.js";
+import User from "../models/User.js";
 import { v4 as uuidv4 } from "uuid";
 import cloudinary from "../utils/config_multer.js";
 import { publierSurFacebook } from "../utils/facebook.js";
@@ -54,6 +55,7 @@ export const createCours = async (req, res) => {
   try {
     const body = req.body;
 
+    // Validation minimale
     if (!body.titre || !body.introduction) {
       return res.status(400).json({
         success: false,
@@ -101,17 +103,22 @@ export const createCours = async (req, res) => {
     // 🔵 Récupérer infos formateur
     const formateur = await User.findById(req.user.id).select("nom prenom");
 
-    // 🔵 Construire URL du cours
-    const urlCours = `https://ton-site.com/cours/${cours._id}`;
+    // Si pour une raison quelconque le formateur n'est pas trouvé
+    if (!formateur) {
+      console.warn("Formateur introuvable pour l'ID :", req.user.id);
+    } else {
+      // 🔵 Construire URL du cours (sans espace à la fin)
+      const urlCours = `https://formation-box.online/initia.html?id=${cours._id}`;
 
-    // 🔵 Publier sur Facebook
-    publierSurFacebook({
-      nom: formateur.nom,
-      prenom: formateur.prenom,
-      titre: cours.titre,
-      introduction: cours.introduction,
-      url: urlCours,
-    });
+      // 🔵 Publier sur Facebook (sans bloquer la réponse)
+      publierSurFacebook({
+        nom: formateur.nom,
+        prenom: formateur.prenom,
+        titre: cours.titre,
+        introduction: cours.introduction,
+        url: urlCours,
+      });
+    }
 
     res.status(201).json({
       success: true,
