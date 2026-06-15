@@ -1,6 +1,7 @@
 import Cours from "../models/Initiation.js";
 import { v4 as uuidv4 } from "uuid";
 import cloudinary from "../utils/config_multer.js";
+import { publierSurFacebook } from "../utils/facebook.js";
 
 // Champs autorisés pour update
 const allowedFields = [
@@ -53,7 +54,6 @@ export const createCours = async (req, res) => {
   try {
     const body = req.body;
 
-    // Validation minimale
     if (!body.titre || !body.introduction) {
       return res.status(400).json({
         success: false,
@@ -96,6 +96,21 @@ export const createCours = async (req, res) => {
       formateur: req.user.id,
       pdfs: uploadedPdfs,
       videoYoutube,
+    });
+
+    // 🔵 Récupérer infos formateur
+    const formateur = await User.findById(req.user.id).select("nom prenom");
+
+    // 🔵 Construire URL du cours
+    const urlCours = `https://ton-site.com/cours/${cours._id}`;
+
+    // 🔵 Publier sur Facebook
+    publierSurFacebook({
+      nom: formateur.nom,
+      prenom: formateur.prenom,
+      titre: cours.titre,
+      introduction: cours.introduction,
+      url: urlCours,
     });
 
     res.status(201).json({
