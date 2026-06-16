@@ -19,6 +19,7 @@ const allowedOrigins = [
   "http://localhost:5173", // dev
   "https://formation-box.online",
   "https://intercom-formateur.fun",
+  "https://velvety-lebkuchen-56a556.netlify.app/"
 ];
 
 app.use(cors({
