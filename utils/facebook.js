@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const PAGE_ID = "1065054116701806";
+const PAGE_ID = process.env.FB_PAGE_ID;
 const PAGE_ACCESS_TOKEN = process.env.FB_PAGE_TOKEN;
 
 export async function publierSurFacebook({ nom, prenom, titre, introduction, url }) {
