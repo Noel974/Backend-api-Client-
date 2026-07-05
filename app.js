@@ -19,7 +19,7 @@ const allowedOrigins = [
   "http://localhost:5173", // dev
   "https://formation-box.online",
   "https://intercom-formateur.fun",
-  "https://velvety-lebkuchen-56a556.netlify.app"
+  "https://mentor-in.netlify.app"
 ];
 
 app.use(cors({
@@ -36,6 +36,9 @@ const dashboardAdminRoutes =require('./routes/AdminRoutes');
 const dashboardFormateurRoutes = require('./routes/FormateurRoutes');
 const initiationRoutes = require('./routes/InitiationRoutes');
 const clientRoutes = require('./routes/ClientRoutes');
+const stripeRoutes = require("./routes/StripeRoutes");
+
+app.use("/api/stripe", stripeRoutes);
 
 // 🛣️ Montage des routes
 app.get("/", (req, res) => {

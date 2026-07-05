@@ -30,7 +30,16 @@ status: {
     return undefined;
   },
 },
-  paypalLink: { type: String, trim: true },
+stripeAccountId: {
+  type: String,
+  default: null,
+},
+
+stripeOnboarded: {
+  type: Boolean,
+  default: false,
+},
+
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
 });
